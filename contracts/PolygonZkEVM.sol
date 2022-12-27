@@ -430,7 +430,27 @@ contract PolygonZkEVM is Initializable, OwnableUpgradeable, EmergencyManager {
         for (uint256 i = 0; i < batchesNum; i++) {
             // Load current sequence
             BatchData memory currentBatch = batches[i];
-
+            // SYSCOIN check PoDA
+            require(
+                currentBatch.transactions.length ==
+                    32,
+                "PolygonZkEVM::sequenceBatches: Transactions bytes not size 32"
+            );
+            uint256 txsHash = uint256(bytes32(currentBatch.transactions))
+            assembly{
+                //let result := staticcall(1500, 0x63, add(txsHash, 32), mload(txsHash), 0, 0)
+                let result := staticcall(1500, 0x63, txsHash, 0x20, 0, 0)
+                // check the RESULT does not indicate an error.
+                switch result
+                // Revert if precompile RESULT indicates an error.
+                case 0 { revert(0, 0) }
+                // Otherwise check the RETURNDATA
+                default {
+                    if eq(returndatasize(), 0) {
+                        revert(0, 0)
+                    }
+                }
+            }
             // Check if it's a forced batch
             if (currentBatch.minForcedTimestamp > 0) {
                 currentLastForceBatchSequenced++;
@@ -438,7 +458,8 @@ contract PolygonZkEVM is Initializable, OwnableUpgradeable, EmergencyManager {
                 // Check forced data matches
                 bytes32 hashedForcedBatchData = keccak256(
                     abi.encodePacked(
-                        keccak256(currentBatch.transactions),
+                        // SYSCOIN
+                        txsHash,
                         currentBatch.globalExitRoot,
                         currentBatch.minForcedTimestamp
                     )
@@ -479,12 +500,12 @@ contract PolygonZkEVM is Initializable, OwnableUpgradeable, EmergencyManager {
                     currentBatch.timestamp <= block.timestamp,
                 "PolygonZkEVM::sequenceBatches: Timestamp must be inside range"
             );
-
             // Calculate next accumulated input hash
             currentAccInputHash = keccak256(
                 abi.encodePacked(
                     currentAccInputHash,
-                    keccak256(currentBatch.transactions),
+                    // SYSCOIN
+                    txsHash,
                     currentBatch.globalExitRoot,
                     currentBatch.timestamp,
                     msg.sender
@@ -942,10 +963,30 @@ contract PolygonZkEVM is Initializable, OwnableUpgradeable, EmergencyManager {
 
         // Update forcedBatches mapping
         lastForceBatch++;
-
+        // SYSCOIN check PoDA
+        require(
+            transactions.length ==
+                32,
+            "PolygonZkEVM::sequenceBatches: Transactions bytes not size 32"
+        );
+        uint256 txsHash = uint256(bytes32(transactions))
+        assembly{
+            //let result := staticcall(1500, 0x63, add(txsHash, 32), mload(txsHash), 0, 0)
+            let result := staticcall(1500, 0x63, txsHash, 0x20, 0, 0)
+            // check the RESULT does not indicate an error.
+            switch result
+            // Revert if precompile RESULT indicates an error.
+            case 0 { revert(0, 0) }
+            // Otherwise check the RETURNDATA
+            default {
+                if eq(returndatasize(), 0) {
+                    revert(0, 0)
+                }
+            }
+        }
         forcedBatches[lastForceBatch] = keccak256(
             abi.encodePacked(
-                keccak256(transactions),
+                txsHash,
                 lastGlobalExitRoot,
                 uint64(block.timestamp)
             )
@@ -960,7 +1001,7 @@ contract PolygonZkEVM is Initializable, OwnableUpgradeable, EmergencyManager {
                 lastForceBatch,
                 lastGlobalExitRoot,
                 msg.sender,
-                transactions
+                txsHash
             );
         }
     }
@@ -1002,9 +1043,12 @@ contract PolygonZkEVM is Initializable, OwnableUpgradeable, EmergencyManager {
             currentLastForceBatchSequenced++;
 
             // Check forced data matches
+            // SYSCOIN
+            uint256 txsHash = uint256(bytes32(currentBatch.transactions))
             bytes32 hashedForcedBatchData = keccak256(
                 abi.encodePacked(
-                    keccak256(currentBatch.transactions),
+                    // SYSCOIN
+                    txsHash,
                     currentBatch.globalExitRoot,
                     currentBatch.minForcedTimestamp
                 )
@@ -1025,10 +1069,13 @@ contract PolygonZkEVM is Initializable, OwnableUpgradeable, EmergencyManager {
                 );
             }
             // Calculate next acc input hash
+            // SYSCOIN
+            uint256 txsHash = uint256(bytes32(currentBatch.transactions))
             currentAccInputHash = keccak256(
                 abi.encodePacked(
                     currentAccInputHash,
-                    keccak256(currentBatch.transactions),
+                    // SYSCOIN
+                    txsHash,
                     currentBatch.globalExitRoot,
                     uint64(block.timestamp),
                     msg.sender
